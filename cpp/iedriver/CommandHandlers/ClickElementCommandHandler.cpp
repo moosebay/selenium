@@ -26,6 +26,7 @@
 #include "../InputManager.h"
 #include "../Script.h"
 #include "../StringUtilities.h"
+#include "../WebDriverConstants.h"
 
 namespace webdriver {
 
@@ -127,7 +128,7 @@ void ClickElementCommandHandler::ExecuteInternal(const IECommandExecutor& execut
 
           LocationInfo click_location = {};
           long obscuring_element_index = -1;
-          std::string obscuring_element_description;
+          std::string obscuring_element_description = "";
           bool obscured = element_wrapper->IsObscured(&click_location,
                                                       &obscuring_element_index,
                                                       &obscuring_element_description);

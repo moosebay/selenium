@@ -25,11 +25,12 @@ import org.openqa.selenium.grid.data.Session;
 import org.openqa.selenium.grid.sessionmap.SessionMap;
 import org.openqa.selenium.grid.web.CommandHandler;
 import org.openqa.selenium.grid.web.ReverseProxyHandler;
+import org.openqa.selenium.net.Urls;
 import org.openqa.selenium.remote.SessionId;
+import org.openqa.selenium.remote.http.HttpClient;
 import org.openqa.selenium.remote.http.HttpRequest;
 import org.openqa.selenium.remote.http.HttpResponse;
 import org.openqa.selenium.remote.tracing.DistributedTracer;
-import org.openqa.selenium.remote.tracing.HttpTracing;
 import org.openqa.selenium.remote.tracing.Span;
 
 import java.io.IOException;
@@ -42,7 +43,10 @@ class HandleSession implements CommandHandler {
   private final LoadingCache<SessionId, CommandHandler> knownSessions;
   private final DistributedTracer tracer;
 
-  public HandleSession(DistributedTracer tracer, SessionMap sessions) {
+  public HandleSession(
+      DistributedTracer tracer,
+      HttpClient.Factory httpClientFactory,
+      SessionMap sessions) {
     this.tracer = Objects.requireNonNull(tracer);
     Objects.requireNonNull(sessions);
 
@@ -55,7 +59,8 @@ class HandleSession implements CommandHandler {
             if (session instanceof CommandHandler) {
               return (CommandHandler) session;
             }
-            return new ReverseProxyHandler(session.getUri().toURL());
+            HttpClient client = httpClientFactory.createClient(Urls.fromUri(session.getUri()));
+            return new ReverseProxyHandler(client);
           }
         });
   }

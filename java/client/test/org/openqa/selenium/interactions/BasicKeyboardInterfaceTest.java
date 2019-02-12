@@ -166,10 +166,11 @@ public class BasicKeyboardInterfaceTest extends JUnit4TestBase {
   }
 
   @Test
+  @NotYetImplemented(HTMLUNIT)
   public void testThrowsIllegalArgumentExceptionWithNullParameter() {
     driver.get(pages.javascriptPage);
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(() -> driver.findElement(By.id("keyReporter")).sendKeys(null));
+        .isThrownBy(() -> driver.findElement(By.id("keyReporter")).sendKeys((CharSequence) null));
   }
 
   @Test
@@ -185,7 +186,7 @@ public class BasicKeyboardInterfaceTest extends JUnit4TestBase {
   public void testThrowsIllegalArgumentExceptionWithCharSequenceThatContainsNull() {
     driver.get(pages.javascriptPage);
     assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(
-        () -> driver.findElement(By.id("keyReporter")).sendKeys(new CharSequence[]{"x", null, "y"}));
+        () -> driver.findElement(By.id("keyReporter")).sendKeys("x", null, "y"));
   }
 
   @Test

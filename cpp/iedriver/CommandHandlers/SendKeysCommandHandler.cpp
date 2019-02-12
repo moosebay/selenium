@@ -143,8 +143,11 @@ void SendKeysCommandHandler::ExecuteInternal(
       if (!this->VerifyPageHasFocus(browser_wrapper)) {
         LOG(WARN) << "HTML rendering pane does not have the focus. Keystrokes may go to an unexpected UI element.";
       }
-      if (!this->WaitUntilElementFocused(element_wrapper->element())) {
-        LOG(WARN) << "Specified element is not the active element. Keystrokes may go to an unexpected DOM element.";
+      if (!this->WaitUntilElementFocused(element_wrapper)) {
+        error_description = "Element cannot be interacted with via the keyboard because it is not focusable";
+        response->SetErrorResponse(ERROR_ELEMENT_NOT_INTERACTABLE,
+                                   error_description);
+        return;
       }
 
       Json::Value actions = this->CreateActionSequencePayload(executor, &keys);
@@ -174,10 +177,6 @@ bool SendKeysCommandHandler::IsElementInteractable(ElementHandle element_wrapper
     return false;
   }
 
-  if (!element_wrapper->IsFocusable()) {
-    *error_description = "Element cannot be interacted with via the keyboard because it is not focusable";
-    return false;
-  }
   return true;
 }
 
@@ -192,6 +191,20 @@ Json::Value SendKeysCommandHandler::CreateActionSequencePayload(const IECommandE
   for (size_t i = 0; i < keys->size(); ++i) {
     std::wstring character = L"";
     character.push_back(keys->at(i));
+    if (IS_HIGH_SURROGATE(keys->at(i))) {
+      // We've converted the key string to a wstring, which contain
+      // wchar_t elements. On Windows, wchar_t is 16 bits, meaning
+      // the string has been encoded to UTF-16, which implies each
+      // Unicode code point will be either one wchar_t (where the
+      // value <= 0xFFFF), or two wchar_ts (where the code point is
+      // represented by a surrogate pair). In the latter case, we
+      // test for the first part of a surrogate pair, and if  it is
+      // one, we grab the next wchar_t, and use the two together to
+      // represent a single Unicode "character."
+      ++i;
+      character.push_back(keys->at(i));
+    }
+
     std::string single_key = StringUtilities::ToString(character);
 
     if (keys->at(i) == WD_KEY_SHIFT) {
@@ -958,8 +971,9 @@ bool SendKeysCommandHandler::VerifyPageHasFocus(BrowserHandle browser_wrapper) {
   return info.hwndFocus == browser_pane_window_handle;
 }
 
-bool SendKeysCommandHandler::WaitUntilElementFocused(IHTMLElement* element) {
+bool SendKeysCommandHandler::WaitUntilElementFocused(ElementHandle element_wrapper) {
   // Check we have focused the element.
+  CComPtr<IHTMLElement> element = element_wrapper->element();
   bool has_focus = false;
   CComPtr<IDispatch> dispatch;
   element->get_document(&dispatch);

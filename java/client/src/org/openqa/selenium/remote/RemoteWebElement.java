@@ -34,6 +34,7 @@ import org.openqa.selenium.WebElement;
 import org.openqa.selenium.WrapsDriver;
 import org.openqa.selenium.WrapsElement;
 import org.openqa.selenium.interactions.Coordinates;
+import org.openqa.selenium.interactions.Locatable;
 import org.openqa.selenium.internal.FindsByClassName;
 import org.openqa.selenium.internal.FindsByCssSelector;
 import org.openqa.selenium.internal.FindsById;
@@ -41,7 +42,6 @@ import org.openqa.selenium.internal.FindsByLinkText;
 import org.openqa.selenium.internal.FindsByName;
 import org.openqa.selenium.internal.FindsByTagName;
 import org.openqa.selenium.internal.FindsByXPath;
-import org.openqa.selenium.internal.HasIdentity;
 import org.openqa.selenium.io.Zip;
 
 import java.io.File;
@@ -52,9 +52,7 @@ import java.util.Map;
 
 public class RemoteWebElement implements WebElement, FindsByLinkText, FindsById, FindsByName,
                                          FindsByTagName, FindsByClassName, FindsByCssSelector,
-                                         FindsByXPath, WrapsDriver, HasIdentity,
-                                         TakesScreenshot,
-                                         org.openqa.selenium.interactions.Locatable {
+                                         FindsByXPath, WrapsDriver, TakesScreenshot, Locatable {
   private String foundBy;
   protected String id;
   protected RemoteWebDriver parent;
@@ -80,14 +78,17 @@ public class RemoteWebElement implements WebElement, FindsByLinkText, FindsById,
     fileDetector = detector;
   }
 
+  @Override
   public void click() {
     execute(DriverCommand.CLICK_ELEMENT(id));
   }
 
+  @Override
   public void submit() {
     execute(DriverCommand.SUBMIT_ELEMENT(id));
   }
 
+  @Override
   public void sendKeys(CharSequence... keysToSend) {
     if (keysToSend == null || keysToSend.length == 0) {
       throw new IllegalArgumentException("Keys to send should be a not null CharSequence");
@@ -120,15 +121,18 @@ public class RemoteWebElement implements WebElement, FindsByLinkText, FindsById,
     }
   }
 
+  @Override
   public void clear() {
     execute(DriverCommand.CLEAR_ELEMENT(id));
   }
 
+  @Override
   public String getTagName() {
     return (String) execute(DriverCommand.GET_ELEMENT_TAG_NAME(id))
         .getValue();
   }
 
+  @Override
   public String getAttribute(String name) {
     return stringValueOf(
         execute(DriverCommand.GET_ELEMENT_ATTRIBUTE(id, name))
@@ -142,6 +146,7 @@ public class RemoteWebElement implements WebElement, FindsByLinkText, FindsById,
     return String.valueOf(o);
   }
 
+  @Override
   public boolean isSelected() {
     Object value = execute(DriverCommand.IS_ELEMENT_SELECTED(id))
         .getValue();
@@ -152,6 +157,7 @@ public class RemoteWebElement implements WebElement, FindsByLinkText, FindsById,
     }
   }
 
+  @Override
   public boolean isEnabled() {
     Object value = execute(DriverCommand.IS_ELEMENT_ENABLED(id))
         .getValue();
@@ -162,20 +168,24 @@ public class RemoteWebElement implements WebElement, FindsByLinkText, FindsById,
     }
   }
 
+  @Override
   public String getText() {
     Response response = execute(DriverCommand.GET_ELEMENT_TEXT(id));
     return (String) response.getValue();
   }
 
+  @Override
   public String getCssValue(String propertyName) {
     Response response = execute(DriverCommand.GET_ELEMENT_VALUE_OF_CSS_PROPERTY(id, propertyName));
     return (String) response.getValue();
   }
 
+  @Override
   public List<WebElement> findElements(By by) {
     return by.findElements(this);
   }
 
+  @Override
   public WebElement findElement(By by) {
     return by.findElement(this);
   }
@@ -214,66 +224,82 @@ public class RemoteWebElement implements WebElement, FindsByLinkText, FindsById,
     return allElements;
   }
 
+  @Override
   public WebElement findElementById(String using) {
     return findElement("id", using);
   }
 
+  @Override
   public List<WebElement> findElementsById(String using) {
     return findElements("id", using);
   }
 
+  @Override
   public WebElement findElementByLinkText(String using) {
     return findElement("link text", using);
   }
 
+  @Override
   public List<WebElement> findElementsByLinkText(String using) {
     return findElements("link text", using);
   }
 
+  @Override
   public WebElement findElementByName(String using) {
     return findElement("name", using);
   }
 
+  @Override
   public List<WebElement> findElementsByName(String using) {
     return findElements("name", using);
   }
 
+  @Override
   public WebElement findElementByClassName(String using) {
     return findElement("class name", using);
   }
 
+  @Override
   public List<WebElement> findElementsByClassName(String using) {
     return findElements("class name", using);
   }
 
+  @Override
   public WebElement findElementByCssSelector(String using) {
     return findElement("css selector", using);
   }
 
+  @Override
   public List<WebElement> findElementsByCssSelector(String using) {
     return findElements("css selector", using);
   }
 
+  @Override
   public WebElement findElementByXPath(String using) {
     return findElement("xpath", using);
   }
 
+  @Override
   public List<WebElement> findElementsByXPath(String using) {
     return findElements("xpath", using);
   }
 
+  @Override
   public WebElement findElementByPartialLinkText(String using) {
     return findElement("partial link text", using);
   }
 
+  @Override
   public List<WebElement> findElementsByPartialLinkText(String using) {
     return findElements("partial link text", using);
   }
 
+  @Override
   public WebElement findElementByTagName(String using) {
     return findElement("tag name", using);
   }
 
+  @Override
   public List<WebElement> findElementsByTagName(String using) {
     return findElements("tag name", using);
   }
@@ -319,10 +345,12 @@ public class RemoteWebElement implements WebElement, FindsByLinkText, FindsById,
    *
    * @see org.openqa.selenium.internal.WrapsDriver#getWrappedDriver()
    */
+  @Override
   public WebDriver getWrappedDriver() {
     return parent;
   }
 
+  @Override
   public boolean isDisplayed() {
     Object value = execute(DriverCommand.IS_ELEMENT_DISPLAYED(id))
         .getValue();
@@ -333,6 +361,7 @@ public class RemoteWebElement implements WebElement, FindsByLinkText, FindsById,
     }
   }
 
+  @Override
   @SuppressWarnings({"unchecked"})
   public Point getLocation() {
     Response response = execute(DriverCommand.GET_ELEMENT_LOCATION(id));
@@ -342,6 +371,7 @@ public class RemoteWebElement implements WebElement, FindsByLinkText, FindsById,
     return new Point(x, y);
   }
 
+  @Override
   @SuppressWarnings({"unchecked"})
   public Dimension getSize() {
     Response response = execute(DriverCommand.GET_ELEMENT_SIZE(id));
@@ -351,6 +381,7 @@ public class RemoteWebElement implements WebElement, FindsByLinkText, FindsById,
     return new Dimension(width, height);
   }
 
+  @Override
   @SuppressWarnings({"unchecked"})
   public Rectangle getRect() {
     Response response = execute(DriverCommand.GET_ELEMENT_RECT(id));
@@ -362,13 +393,16 @@ public class RemoteWebElement implements WebElement, FindsByLinkText, FindsById,
     return new Rectangle(x, y, height, width);
   }
 
+  @Override
   public Coordinates getCoordinates() {
     return new Coordinates() {
 
+      @Override
       public Point onScreen() {
         throw new UnsupportedOperationException("Not supported yet.");
       }
 
+      @Override
       public Point inViewPort() {
         Response response = execute(DriverCommand.GET_ELEMENT_LOCATION_ONCE_SCROLLED_INTO_VIEW(getId()));
 
@@ -377,16 +411,19 @@ public class RemoteWebElement implements WebElement, FindsByLinkText, FindsById,
         return new Point(mapped.get("x").intValue(), mapped.get("y").intValue());
       }
 
+      @Override
       public Point onPage() {
         return getLocation();
       }
 
+      @Override
       public Object getAuxiliary() {
         return getId();
       }
     };
   }
 
+  @Override
   @Beta
   public <X> X getScreenshotAs(OutputType<X> outputType) throws WebDriverException {
     Response response = execute(DriverCommand.ELEMENT_SCREENSHOT(id));

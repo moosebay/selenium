@@ -290,6 +290,7 @@ public abstract class AbstractHttpCommandCodec implements CommandCodec<HttpReque
    *     path segment prefixed with a ":" will be replaced with the corresponding parameter
    *     from the encoded command.
    */
+  @Override
   public void defineCommand(String name, HttpMethod method, String pathPattern) {
     defineCommand(name, new CommandSpec(method, pathPattern));
   }
@@ -343,9 +344,8 @@ public abstract class AbstractHttpCommandCodec implements CommandCodec<HttpReque
     SessionId sessionId,
     Map<String, ?> parameters) {
     if ("sessionId".equals(parameterName)) {
-      SessionId id = sessionId;
-      checkArgument(id != null, "Session ID may not be null for command %s", commandName);
-      return id.toString();
+      checkArgument(sessionId != null, "Session ID may not be null for command %s", commandName);
+      return sessionId.toString();
     }
 
     Object value = parameters.get(parameterName);

@@ -41,6 +41,11 @@
 #include "ProxyManager.h"
 #include "StringUtilities.h"
 #include "Script.h"
+#include "WebDriverConstants.h"
+
+#define MAX_HTML_DIALOG_RETRIES 5
+#define WAIT_TIME_IN_MILLISECONDS 50
+#define DEFAULT_FILE_UPLOAD_DIALOG_TIMEOUT_IN_MILLISECONDS 3000
 
 namespace webdriver {
 
@@ -138,10 +143,21 @@ LRESULT IECommandExecutor::OnSetCommand(UINT uMsg,
                                         LPARAM lParam,
                                         BOOL& bHandled) {
   LOG(TRACE) << "Entering IECommandExecutor::OnSetCommand";
+  LRESULT set_command_result = 0;
 
   LPCSTR json_command = reinterpret_cast<LPCSTR>(lParam);
-  this->current_command_.Deserialize(json_command);
-  return 0;
+  Command requested_command;
+  requested_command.Deserialize(json_command);
+
+  this->set_command_mutex_.lock();
+  if (this->current_command_.command_type() == CommandType::NoCommand ||
+      requested_command.command_type() == CommandType::Quit) {
+    this->current_command_.Deserialize(json_command);
+    set_command_result = 1;
+  }
+  this->set_command_mutex_.unlock();
+
+  return set_command_result;
 }
 
 LRESULT IECommandExecutor::OnExecCommand(UINT uMsg,
@@ -180,6 +196,7 @@ LRESULT IECommandExecutor::OnGetResponse(UINT uMsg,
 
   // Reset the serialized response for the next command.
   this->serialized_response_ = "";
+  this->current_command_.Reset();
   return 0;
 }
 
@@ -271,30 +288,10 @@ LRESULT IECommandExecutor::OnBrowserNewWindow(UINT uMsg,
                                               LPARAM lParam,
                                               BOOL& bHandled) {
   LOG(TRACE) << "Entering IECommandExecutor::OnBrowserNewWindow";
-
-  IWebBrowser2* browser = this->factory_->CreateBrowser();
-  if (browser == NULL) {
-    // No browser was created, so we have to bail early.
-    // Check the log for the HRESULT why.
-    return 1;
-  }
-  LOG(DEBUG) << "New browser window was opened.";
-  BrowserHandle new_window_wrapper(new Browser(browser, NULL, this->m_hWnd));
-  // It is acceptable to set the proxy settings here, as the newly-created
-  // browser window has not yet been navigated to any page. Only after the
-  // interface has been marshaled back across the thread boundary to the
-  // NewWindow3 event handler will the navigation begin, which ensures that
-  // even the initial navigation will get captured by the proxy, if one is
-  // set. Likewise, the cookie manager needs to have its window handle
-  // properly set to a non-NULL value so that windows messages are routed
-  // to the correct window.
-  // N.B. DocumentHost::GetBrowserWindowHandle returns the tab window handle
-  // for IE 7 and above, and the top-level window for IE6. This is the window
-  // required for setting the proxy settings.
-  HWND new_window_handle = new_window_wrapper->GetBrowserWindowHandle();
-  this->proxy_manager_->SetProxySettings(new_window_handle);
-  new_window_wrapper->cookie_manager()->Initialize(new_window_handle);
-  this->AddManagedBrowser(new_window_wrapper);
+  std::string new_browser_id = this->OpenNewBrowsingContext(WINDOW_WINDOW_TYPE);
+  BrowserHandle new_window_wrapper;
+  this->GetManagedBrowser(new_browser_id, &new_window_wrapper);
+  IWebBrowser2* browser = new_window_wrapper->browser();
   LOG(DEBUG) << "Attempting to marshal interface pointer to requesting thread.";
   LPSTREAM* stream = reinterpret_cast<LPSTREAM*>(lParam);
   HRESULT hr = ::CoMarshalInterThreadInterfaceInStream(IID_IWebBrowser2,
@@ -683,7 +680,7 @@ unsigned int WINAPI IECommandExecutor::ThreadProc(LPVOID lpParameter) {
   // Return the HWND back through lpParameter, and signal that the
   // window is ready for messages.
   thread_context->hwnd = session_window_handle;
-  HANDLE event_handle = ::OpenEvent(EVENT_ALL_ACCESS, FALSE, EVENT_NAME);
+  HANDLE event_handle = ::OpenEvent(EVENT_ALL_ACCESS, FALSE, WEBDRIVER_START_EVENT_NAME);
   if (event_handle != NULL) {
     ::SetEvent(event_handle);
     ::CloseHandle(event_handle);
@@ -1036,6 +1033,135 @@ void IECommandExecutor::AddManagedBrowser(BrowserHandle browser_wrapper) {
     LOG(TRACE) << "Setting current browser id to " << browser_wrapper->browser_id();
     this->current_browser_id_ = browser_wrapper->browser_id();
   }
+}
+
+std::string IECommandExecutor::OpenNewBrowsingContext(const std::string& window_type) {
+  std::string new_browser_id = "";
+  if (window_type == TAB_WINDOW_TYPE) {
+    new_browser_id = this->OpenNewBrowserTab(L"about:blank");
+  } else {
+    new_browser_id = this->OpenNewBrowserWindow();
+  }
+
+  BrowserHandle new_window_wrapper;
+  this->GetManagedBrowser(new_browser_id, &new_window_wrapper);
+  HWND new_window_handle = new_window_wrapper->GetBrowserWindowHandle();
+  this->proxy_manager_->SetProxySettings(new_window_handle);
+  new_window_wrapper->cookie_manager()->Initialize(new_window_handle);
+
+  return new_browser_id;
+}
+
+std::string IECommandExecutor::OpenNewBrowserWindow() {
+  CComPtr<IWebBrowser2> browser = this->factory_->CreateBrowser();
+  if (browser == NULL) {
+    // No browser was created, so we have to bail early.
+    // Check the log for the HRESULT why.
+    return "";
+  }
+  LOG(DEBUG) << "New browser window was opened.";
+  BrowserHandle new_window_wrapper(new Browser(browser, NULL, this->m_hWnd));
+  // It is acceptable to set the proxy settings here, as the newly-created
+  // browser window has not yet been navigated to any page. Only after the
+  // interface has been marshaled back across the thread boundary to the
+  // NewWindow3 event handler will the navigation begin, which ensures that
+  // even the initial navigation will get captured by the proxy, if one is
+  // set. Likewise, the cookie manager needs to have its window handle
+  // properly set to a non-NULL value so that windows messages are routed
+  // to the correct window.
+  // N.B. DocumentHost::GetBrowserWindowHandle returns the tab window handle
+  // for IE 7 and above, and the top-level window for IE6. This is the window
+  // required for setting the proxy settings.
+  this->AddManagedBrowser(new_window_wrapper);
+  return new_window_wrapper->browser_id();
+}
+
+std::string IECommandExecutor::OpenNewBrowserTab(const std::wstring& url) {
+  BrowserHandle browser_wrapper;
+  this->GetCurrentBrowser(&browser_wrapper);
+  HWND top_level_handle = browser_wrapper->GetTopLevelWindowHandle();
+
+  std::vector<HWND> original_handles;
+  ::EnumChildWindows(top_level_handle,
+                     &FindAllBrowserHandles,
+                     reinterpret_cast<LPARAM>(&original_handles));
+  std::sort(original_handles.begin(), original_handles.end());
+
+  // IWebBrowser2::Navigate2 will open the specified URL in a new tab,
+  // if requested. The Sleep() call after the navigate is necessary,
+  // since the IECommandExecutor class doesn't have access to the events
+  // to indicate the navigation is completed.
+  CComVariant url_variant = url.c_str();
+  CComVariant flags = navOpenInNewTab;
+  browser_wrapper->browser()->Navigate2(&url_variant,
+                                        &flags,
+                                        NULL,
+                                        NULL,
+                                        NULL);
+  ::Sleep(500);
+
+  clock_t end_time = clock() + 5 * CLOCKS_PER_SEC;
+  std::vector<HWND> new_handles;
+  ::EnumChildWindows(top_level_handle,
+                     &FindAllBrowserHandles,
+                     reinterpret_cast<LPARAM>(&new_handles));
+  while (new_handles.size() <= original_handles.size() &&
+         clock() < end_time) {
+    ::Sleep(50);
+    ::EnumChildWindows(top_level_handle,
+                       &FindAllBrowserHandles,
+                       reinterpret_cast<LPARAM>(&new_handles));
+  }
+  std::sort(new_handles.begin(), new_handles.end());
+
+  if (new_handles.size() <= original_handles.size()) {
+    LOG(WARN) << "No new window handle found after attempt to open";
+    return "";
+  }
+
+  // We are guaranteed to have at least one HWND difference
+  // between the two vectors if we reach this point, because
+  // we know the vectors are different sizes.
+  std::vector<HWND> diff(new_handles.size());
+  std::vector<HWND>::iterator it = std::set_difference(new_handles.begin(),
+                                                       new_handles.end(),
+                                                       original_handles.begin(),
+                                                       original_handles.end(),
+                                                       diff.begin());
+  diff.resize(it - diff.begin());
+  HWND new_tab_window = diff[0];
+
+  DWORD process_id;
+  ::GetWindowThreadProcessId(new_tab_window, &process_id);
+  ProcessWindowInfo info;
+  info.dwProcessId = process_id;
+  info.hwndBrowser = new_tab_window;
+  info.pBrowser = NULL;
+  std::string error_message = "";
+  this->factory_->AttachToBrowser(&info, &error_message);
+  BrowserHandle new_tab_wrapper(new Browser(info.pBrowser,
+                                            NULL,
+                                            this->m_hWnd));
+  this->AddManagedBrowser(new_tab_wrapper);
+  return new_tab_wrapper->browser_id();
+}
+
+BOOL CALLBACK IECommandExecutor::FindAllBrowserHandles(HWND hwnd, LPARAM arg) {
+  std::vector<HWND>* handles = reinterpret_cast<std::vector<HWND>*>(arg);
+
+  // Could this be an Internet Explorer Server window?
+  // 25 == "Internet Explorer_Server\0"
+  char name[25];
+  if (::GetClassNameA(hwnd, name, 25) == 0) {
+    // No match found. Skip
+    return TRUE;
+  }
+
+  if (strcmp("Internet Explorer_Server", name) == 0) {
+    handles->push_back(hwnd);
+  }
+
+  return TRUE;
 }
 
 int IECommandExecutor::CreateNewBrowser(std::string* error_message) {

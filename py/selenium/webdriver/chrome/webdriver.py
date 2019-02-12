@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 import warnings
-
 from selenium.webdriver.remote.webdriver import WebDriver as RemoteWebDriver
 from .remote_connection import ChromeRemoteConnection
 from .service import Service
@@ -47,7 +46,6 @@ class WebDriver(RemoteWebDriver):
          - desired_capabilities - Dictionary object with non-browser specific
            capabilities only, such as "proxy" or "loggingPref".
          - service_log_path - Where to log information from the driver.
-         - chrome_options - Deprecated argument for options
          - keep_alive - Whether to configure ChromeRemoteConnection to use HTTP keep-alive.
         """
         if chrome_options:
@@ -109,11 +107,13 @@ class WebDriver(RemoteWebDriver):
          - network_conditions: A dict with conditions specification.
 
         :Usage:
-            driver.set_network_conditions(
-                offline=False,
-                latency=5,  # additional latency (ms)
-                download_throughput=500 * 1024,  # maximal throughput
-                upload_throughput=500 * 1024)  # maximal throughput
+            ::
+
+                driver.set_network_conditions(
+                    offline=False,
+                    latency=5,  # additional latency (ms)
+                    download_throughput=500 * 1024,  # maximal throughput
+                    upload_throughput=500 * 1024)  # maximal throughput
 
             Note: 'throughput' can be used to set both (for download and upload).
         """
@@ -133,7 +133,9 @@ class WebDriver(RemoteWebDriver):
          - cmd_args: A dict, command args. empty dict {} if there is no command args
 
         :Usage:
-            driver.execute_cdp_cmd('Network.getResponseBody', {'requestId': requestId})
+            ::
+
+                driver.execute_cdp_cmd('Network.getResponseBody', {'requestId': requestId})
 
         :Returns:
             A dict, empty dict {} if there is no result to return.

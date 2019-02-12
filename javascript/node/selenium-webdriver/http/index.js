@@ -102,9 +102,12 @@ class HttpClient {
     let data;
 
     let headers = {};
-    httpRequest.headers.forEach(function(value, name) {
-      headers[name] = value;
-    });
+
+    if (httpRequest.headers) {
+      httpRequest.headers.forEach(function(value, name) {
+        headers[name] = value;
+      });
+    }
 
     headers['User-Agent'] = USER_AGENT;
     headers['Content-Length'] = 0;
@@ -287,6 +290,7 @@ function isRetryableNetworkError(err) {
   if (err && err.code) {
     return err.code === 'ECONNABORTED' ||
           err.code === 'ECONNRESET' ||
+          err.code === 'ECONNREFUSED' ||
           err.code === 'EADDRINUSE' ||
           err.code === 'EPIPE';
   }
@@ -297,6 +301,7 @@ function isRetryableNetworkError(err) {
 
 // PUBLIC API
 
+exports.Agent = http.Agent;
 exports.Executor = httpLib.Executor;
 exports.HttpClient = HttpClient;
 exports.Request = httpLib.Request;

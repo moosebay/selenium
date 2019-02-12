@@ -14,13 +14,12 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-import warnings
-
 from selenium.common.exceptions import InvalidArgumentException
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.common.proxy import Proxy
 from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
 from selenium.webdriver.firefox.firefox_profile import FirefoxProfile
+from selenium.webdriver.common.options import ArgOptions
 
 
 class Log(object):
@@ -33,16 +32,15 @@ class Log(object):
         return {}
 
 
-class Options(object):
+class Options(ArgOptions):
     KEY = "moz:firefoxOptions"
 
     def __init__(self):
+        super(Options, self).__init__()
         self._binary = None
         self._preferences = {}
         self._profile = None
         self._proxy = None
-        self._caps = DesiredCapabilities.FIREFOX.copy()
-        self._arguments = []
         self.log = Log()
 
     @property
@@ -77,14 +75,6 @@ class Options(object):
     @accept_insecure_certs.setter
     def accept_insecure_certs(self, value):
         self._caps['acceptInsecureCerts'] = value
-
-    @property
-    def capabilities(self):
-        return self._caps
-
-    def set_capability(self, name, value):
-        """Sets a capability."""
-        self._caps[name] = value
 
     @property
     def preferences(self):
@@ -122,17 +112,6 @@ class Options(object):
         self._profile = new_profile
 
     @property
-    def arguments(self):
-        """Returns a list of browser process arguments."""
-        return self._arguments
-
-    def add_argument(self, argument):
-        """Add argument to be used for the browser process."""
-        if argument is None:
-            raise ValueError()
-        self._arguments.append(argument)
-
-    @property
     def headless(self):
         """
         Returns whether or not the headless argument is set
@@ -151,12 +130,6 @@ class Options(object):
             self._arguments.append('-headless')
         elif '-headless' in self._arguments:
             self._arguments.remove('-headless')
-
-    def set_headless(self, headless=True):
-        """ Deprecated, options.headless = True """
-        warnings.warn('use setter for headless property instead of set_headless',
-                      DeprecationWarning, stacklevel=2)
-        self.headless = headless
 
     def to_capabilities(self):
         """Marshals the Firefox options to a `moz:firefoxOptions`
@@ -187,3 +160,7 @@ class Options(object):
             caps[Options.KEY] = opts
 
         return caps
+
+    @property
+    def default_capabilities(self):
+        return DesiredCapabilities.FIREFOX.copy()

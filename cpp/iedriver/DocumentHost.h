@@ -23,8 +23,6 @@
 
 #include "LocationInfo.h"
 
-#define EELEMENTCLICKPOINTNOTSCROLLED 100
-
 namespace webdriver {
 
 // Forward declaration of classes.
@@ -65,6 +63,8 @@ class DocumentHost {
   virtual bool IsFullScreen(void) = 0;
   virtual bool SetFullScreen(bool is_full_screen) = 0;
   void Restore(void);
+
+  virtual IWebBrowser2* browser(void) = 0;
 
   std::string GetCurrentUrl(void);
   std::string GetPageSource(void);

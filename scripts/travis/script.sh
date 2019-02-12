@@ -1,9 +1,5 @@
 set -ex
 
-if [[ ! -z $TOXENV ]]; then
-  . jdk_switcher.sh && jdk_switcher use oraclejdk8
-fi
-
 if [[ $TOXENV == *"remote"* ]]; then
   ./go selenium-server-standalone
 fi
@@ -19,4 +15,9 @@ fi
 
 if [[ ! -z "$BUCK" ]]; then
   ./buckw $BUCK
+fi
+
+if [[ ! -z "$NPM" ]]; then
+  ./go node:atoms
+  cd javascript/node/selenium-webdriver; npm install; npm run $NPM
 fi

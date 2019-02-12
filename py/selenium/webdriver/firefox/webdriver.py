@@ -14,21 +14,17 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-import warnings
-
 try:
     basestring
 except NameError:  # Python 3.x
     basestring = str
 
 import shutil
-import sys
 from contextlib import contextmanager
 
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.remote.webdriver import WebDriver as RemoteWebDriver
 
-from .extension_connection import ExtensionConnection
 from .firefox_binary import FirefoxBinary
 from .firefox_profile import FirefoxProfile
 from .options import Options
@@ -38,9 +34,6 @@ from .webelement import FirefoxWebElement
 
 
 class WebDriver(RemoteWebDriver):
-
-    # There is no native event support on Mac
-    NATIVE_EVENTS_ALLOWED = sys.platform != "darwin"
 
     CONTEXT_CHROME = "chrome"
     CONTEXT_CONTENT = "content"
@@ -76,7 +69,7 @@ class WebDriver(RemoteWebDriver):
         In this case that would be `firefox_profile`.  This will result in
         `options.profile` to be ignored because it is considered
         a less specific setting than the top-level `firefox_profile`
-        keyword argument.  Similarily, if you had specified a
+        keyword argument.  Similarly, if you had specified a
         `capabilities["moz:firefoxOptions"]["profile"]` Base64 string,
         this would rank below `options.profile`.
 
@@ -89,30 +82,20 @@ class WebDriver(RemoteWebDriver):
         :param timeout: Time to wait for Firefox to launch when using
             the extension connection.
         :param capabilities: Dictionary of desired capabilities.
-        :param proxy: The proxy settings to us when communicating with
+        :param proxy: The proxy settings to use when communicating with
             Firefox via the extension connection.
         :param executable_path: Full path to override which geckodriver
             binary to use for Firefox 47.0.1 and greater, which
             defaults to picking up the binary from the system path.
         :param options: Instance of ``options.Options``.
         :param service_log_path: Where to log information from the driver.
-        :param firefox_options: Deprecated argument for options
         :param service_args: List of args to pass to the driver service
         :param desired_capabilities: alias of capabilities. In future
             versions of this library, this will replace 'capabilities'.
             This will make the signature consistent with RemoteWebDriver.
-        :param log_path: Deprecated argument for service_log_path
         :param keep_alive: Whether to configure remote_connection.RemoteConnection to use
              HTTP keep-alive.
         """
-        if log_path:
-            warnings.warn('use service_log_path instead of log_path',
-                          DeprecationWarning, stacklevel=2)
-            service_log_path = log_path
-        if firefox_options:
-            warnings.warn('use options instead of firefox_options',
-                          DeprecationWarning, stacklevel=2)
-            options = firefox_options
         self.binary = None
         self.profile = None
         self.service = None
@@ -152,48 +135,21 @@ class WebDriver(RemoteWebDriver):
             self.profile = firefox_profile
             options.profile = firefox_profile
 
-        # W3C remote
-        # TODO(ato): Perform conformance negotiation
+        self.service = Service(
+            executable_path,
+            service_args=service_args,
+            log_path=service_log_path)
+        self.service.start()
 
-        if capabilities.get("marionette"):
-            capabilities.pop("marionette")
-            self.service = Service(
-                executable_path,
-                service_args=service_args,
-                log_path=service_log_path)
-            self.service.start()
+        capabilities.update(options.to_capabilities())
 
-            capabilities.update(options.to_capabilities())
-
-            executor = FirefoxRemoteConnection(
-                remote_server_addr=self.service.service_url)
-            RemoteWebDriver.__init__(
-                self,
-                command_executor=executor,
-                desired_capabilities=capabilities,
-                keep_alive=True)
-
-        # Selenium remote
-        else:
-            if self.binary is None:
-                self.binary = FirefoxBinary()
-            if self.profile is None:
-                self.profile = FirefoxProfile()
-
-            # disable native events if globally disabled
-            self.profile.native_events_enabled = (
-                self.NATIVE_EVENTS_ALLOWED and self.profile.native_events_enabled)
-
-            if proxy is not None:
-                proxy.add_to_capabilities(capabilities)
-
-            executor = ExtensionConnection("127.0.0.1", self.profile,
-                                           self.binary, timeout)
-            RemoteWebDriver.__init__(
-                self,
-                command_executor=executor,
-                desired_capabilities=capabilities,
-                keep_alive=keep_alive)
+        executor = FirefoxRemoteConnection(
+            remote_server_addr=self.service.service_url)
+        RemoteWebDriver.__init__(
+            self,
+            command_executor=executor,
+            desired_capabilities=capabilities,
+            keep_alive=True)
 
         self._is_remote = False
 
@@ -259,7 +215,9 @@ class WebDriver(RemoteWebDriver):
         :param path: Absolute path to the addon that will be installed.
 
         :Usage:
-            driver.install_addon('/path/to/firebug.xpi')
+            ::
+
+                driver.install_addon('/path/to/firebug.xpi')
         """
         payload = {"path": path}
         if temporary is not None:
@@ -271,6 +229,8 @@ class WebDriver(RemoteWebDriver):
         Uninstalls Firefox addon using its identifier.
 
         :Usage:
-            driver.uninstall_addon('addon@foo.com')
+            ::
+
+                driver.uninstall_addon('addon@foo.com')
         """
         self.execute("UNINSTALL_ADDON", {"id": identifier})

@@ -131,9 +131,8 @@ public class TakesScreenshotTest extends JUnit4TestBase {
     compareColors(expectedColors, actualColors);
   }
 
+  @Ignore(FIREFOX)
   @Test
-  @Ignore(value = CHROME)
-  @Ignore(value = FIREFOX)
   public void testShouldCaptureScreenshotOfAnElement() throws Exception {
     driver.get(appServer.whereIs("screen/screen.html"));
     WebElement element = driver.findElement(By.id("cell11"));
@@ -508,8 +507,6 @@ public class TakesScreenshotTest extends JUnit4TestBase {
   private void saveImageToTmpFile(BufferedImage im) {
 
     File outputfile = new File( testName.getMethodName() + "_image.png");
-    System.out.println("Image file is at " + outputfile.getAbsolutePath());
-    System.out.println("Sizes  -> " + im.getWidth() + "x" + im.getHeight());
     try {
       ImageIO.write(im, "png", outputfile);
     } catch (IOException e) {

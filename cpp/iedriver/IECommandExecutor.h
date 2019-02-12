@@ -19,6 +19,7 @@
 
 #include <ctime>
 #include <map>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 
@@ -26,14 +27,6 @@
 #include "CustomTypes.h"
 #include "IElementManager.h"
 #include "messages.h"
-
-#define WAIT_TIME_IN_MILLISECONDS 50
-#define SCRIPT_WAIT_TIME_IN_MILLISECONDS 10
-#define FIND_ELEMENT_WAIT_TIME_IN_MILLISECONDS 250
-#define ASYNC_SCRIPT_EXECUTION_TIMEOUT_IN_MILLISECONDS 2000
-#define DEFAULT_FILE_UPLOAD_DIALOG_TIMEOUT_IN_MILLISECONDS 3000
-#define MAX_HTML_DIALOG_RETRIES 5
-#define MAX_SAFE_INTEGER 9007199254740991L
 
 namespace webdriver {
 
@@ -114,6 +107,7 @@ class IECommandExecutor : public CWindowImpl<IECommandExecutor>, public IElement
   }
 
   int CreateNewBrowser(std::string* error_message);
+  std::string OpenNewBrowsingContext(const std::string& window_type);
 
   int GetManagedBrowser(const std::string& browser_id,
                         BrowserHandle* browser_wrapper) const;
@@ -149,8 +143,8 @@ class IECommandExecutor : public CWindowImpl<IECommandExecutor>, public IElement
     this->implicit_wait_timeout_ = timeout; 
   }
 
-  unsigned long long  async_script_timeout(void) const { return this->async_script_timeout_;  }
-  void set_async_script_timeout(const unsigned long long timeout) {
+  long long  async_script_timeout(void) const { return this->async_script_timeout_;  }
+  void set_async_script_timeout(const long long timeout) {
     this->async_script_timeout_ = timeout;
   }
 
@@ -238,6 +232,10 @@ class IECommandExecutor : public CWindowImpl<IECommandExecutor>, public IElement
                              bool force_use_dismiss,
                              std::string* alert_text);
 
+  std::string OpenNewBrowserWindow(void);
+  std::string OpenNewBrowserTab(const std::wstring& url);
+  static BOOL CALLBACK FindAllBrowserHandles(HWND hwnd, LPARAM arg);
+
   BrowserMap managed_browsers_;
   ElementRepository* managed_elements_;
   ElementFindMethodMap element_find_methods_;
@@ -269,6 +267,7 @@ class IECommandExecutor : public CWindowImpl<IECommandExecutor>, public IElement
   bool is_valid_;
   bool is_quitting_;
   bool is_awaiting_new_window_;
+  std::mutex set_command_mutex_;
 
   BrowserFactory* factory_;
   InputManager* input_manager_;

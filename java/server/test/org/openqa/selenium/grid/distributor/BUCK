@@ -1,9 +1,13 @@
-
 java_test(
     name = "distributor",
     srcs = glob(["*.java"]),
+    labels = [
+        "small",
+    ],
     deps = [
+        "//java/client/src/org/openqa/selenium/support:support",
         "//java/client/src/org/openqa/selenium/remote/tracing:tracing",
+        "//java/server/src/org/openqa/selenium/events/zeromq:zeromq",
         "//java/server/src/org/openqa/selenium/grid/distributor:distributor",
         "//java/server/src/org/openqa/selenium/grid/distributor/local:local",
         "//java/server/src/org/openqa/selenium/grid/distributor/remote:remote",
@@ -15,5 +19,5 @@ java_test(
         "//java/server/test/org/openqa/selenium/grid/web:utils",
         "//third_party/java/assertj:assertj",
         "//third_party/java/junit:junit",
-    ]
+    ],
 )

@@ -16,10 +16,14 @@ _bindings:
   python: &python
     language: python
     python: "2.7"
+    jdk: oraclejdk8
   ruby: &ruby
     language: ruby
     rvm: 2.0.0-p648
     jdk: oraclejdk8
+  node: &node
+    language: node_js
+    node_js: node
 
 _browsers:
   firefox: &firefox-latest
@@ -65,7 +69,19 @@ matrix:
     - env: MARIONETTE=1 TOXENV=py27-marionette
       <<: *python
       <<: *firefox-nightly
+    - env: TASK=//rb:ff-esr-test
+      <<: *ruby
+      <<: *firefox-esr
+    - env: TASK=//rb:remote-ff-esr-test
+      <<: *ruby
+      <<: *firefox-esr
+    - env: CHROME=1 SELENIUM_BROWSER=chrome NPM=test
+      <<: *node
+      <<: *chrome
   include:
+    - env: MARIONETTE=1 SELENIUM_BROWSER=firefox NPM=test
+      <<: *node
+      <<: *firefox-latest
     - env: BUCK="build selenium-server-standalone java-small-tests chrome-test firefox-test legacy-firefox-test grid-test htmlunit-test ie-test opera-test java-small-tests //java/client/test/org/openqa/selenium/testing/drivers/..."
       <<: *java
     - env: BUCK="test //java/client/test/org/openqa/selenium/atoms:test"
@@ -82,7 +98,7 @@ matrix:
     - env: MARIONETTE=1 BUCK="test firefox-test"
       <<: *java
       <<: *firefox-nightly
-    - env: BUCK="test --labels small --always-exclude //java/..."
+    - env: MARIONETTE=1 BUCK="test --labels small --always-exclude //java/..."
       <<: *java
     - env: BUCK="test internal-grid-test"
       <<: *java
@@ -111,10 +127,6 @@ matrix:
       <<: *python
       <<: *chrome
       python: 3.6
-    - env: TOXENV=py36-firefox
-      <<: *python
-      <<: *firefox-esr
-      python: 3.6
     - env: MARIONETTE=1 TOXENV=py36-remote
       <<: *python
       <<: *firefox-nightly
@@ -131,23 +143,16 @@ matrix:
     - env: MARIONETTE=1 TASK=//rb:firefox-test
       <<: *ruby
       <<: *firefox-latest
-    - env: TASK=//rb:ff-esr-test
-      <<: *ruby
-      <<: *firefox-esr
     - env: CHROME=1 TASK=//rb:remote-chrome-test
       <<: *ruby
       <<: *chrome
     - env: MARIONETTE=1 TASK=//rb:remote-firefox-test
       <<: *ruby
       <<: *firefox-latest
-    - env: TASK=//rb:remote-ff-esr-test
-      <<: *ruby
-      <<: *firefox-esr
     - env: TASK=//rb:docs
       <<: *ruby
     - env: TASK=//rb:lint
       <<: *ruby
-before_install: ./scripts/travis/before_install.sh
 install: ./scripts/travis/install.sh
 before_script: ./scripts/travis/before_script.sh
 script: travis_wait ./scripts/travis/script.sh
@@ -161,3 +166,11 @@ notifications:
     on_failure: always
     use_notice: true
     skip_join: true
+  webhooks:
+    urls:
+      - secure: "T889SmDnNCj0fJeWkiX0TumHCnjowxpj5VoauVdTXyXT2R3Grjc6WPReQKw8qzQLxyvHWAip23RlYo2+bM5+zUz11jhQej5W+rk7et6AhVaz3UJiWDIqqaWBgQaB5RsbWzdBJTGukqv88Y0iCT4XHaXvY2stV7OxvkVg7wtQVSQ="
+    on_success: always
+    on_failure: always
+    on_start: always
+    on_cancel: always
+    on_error: always

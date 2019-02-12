@@ -9,6 +9,213 @@ available via the project downloads page. Changes in "revision" field indicate
 private releases checked into the prebuilts directory of the source tree, but
 not made generally available on the downloads page.
 
+v3.141.5.7
+==========
+ * Fixed uninitialized variable in driver.
+
+v3.141.5.6
+==========
+ * Fixed proper keyboard event values for extended keys.
+
+v3.141.5.5
+==========
+ * Added hack for handling cases where document.designMode is on.
+   In IE, when document.designMode is turned on, the browser is put
+   into a state where anonymous JavaScript functions cannot be run.
+   Obviously, this breaks a huge portion of the driver, so the driver
+   will now force documents out of designMode when attempting to
+   execute script. There should be vanishingly few real-world cases
+   where this has an adverse effect, with most sites using the
+   contentEditable attribute instead.
+
+v3.141.5.4
+==========
+ * Added hack for detection of IE in full screen mode.
+
+v3.141.5.3
+==========
+ * Again updated Unicode character processing for composition. The
+   previous change in 3.141.5.1 for using composed Unicode character
+   sequences on send and decomposed on retrieve was disturbingly
+   naive, and entirely incorrect. This revision mostly reverts that
+   change, with the difference of checking for "single-character"
+   encoding sequences when sending. The IE driver will no longer
+   produce the same input for some key combinations as other
+   drivers (see some Hangul sequences for concrete examples). The
+   mitigating factor of this difference in behavior, however, is
+   that the driver should now produce identical input and output
+   between sending keys and reading the text via either getting an
+   element's text or its attributes. Hopefully. There are likely
+   to continue to be corner cases where use of Unicode characters,
+   does not entirely match up to expectations. This is particularly
+   so in languages where individual code points can be combined to
+   form other glyphs identical to other individual code points.
+
+v3.141.5.2
+==========
+ * Enabled create new window command to create tabs. This change
+   overcomes the limitation of only creating top-level browser
+   contexts in new top-level windows. The IE driver can now open
+   new tabs when using the create new window command, as in the
+   .NET language bindings:
+
+       driver.SwitchTo().NewWindow(WindowType.Tab);
+
+   Note carefully that this change is only valid when explicitly
+   using the create new window command. It does not affect clicking
+   on links that open new top-level browsing contexts; those will
+   continue to open in new top-level windows. Furthermore, it is
+   imperative to note that this feature will absolutely not work
+   when Protected Mode properties are misconfigured. In other words,
+   if your code uses the .NET InternetExplorerOptions
+   `IntroduceInstabilityByIgnoringProtectedModeSettings` property
+   (or its equivalent in any other language bindings), this feature
+   will not work. Issue reports submitted regarding this will be
+   summarily closed.
+
+v3.141.5.1
+==========
+ * Implemented create new window commmand. The W3C WebDriver
+   Specification recently added the ability to create a new top-level
+   browsing context, or what appears to the user to be a new tab or
+   window. This change implements that command. Though the command
+   payload contains a hint argument as to what type of new top-level
+   browsing context the user desires (tab or window), the driver
+   implementation is free to ignore this type hint if it does not
+   support the type being requested. Since the IE driver has never
+   supported, and still does not support, creation of new top-level
+   browsing contexts using a new tab, in accordance with the spec, the
+   driver will create the new context in a new window, even if a new
+   tab is requested. Please note this is not a bug; it is as designed,
+   and is still fully compliant with the specification with this
+   behavior.
+ * Fixed edge case for clicking element. In the case of a fixed element
+   where the top-left corner of the element is outside the view port,
+   the click point calculation was not taking the offset of the top-
+   left when looking for the in-view center of the element. This change
+   fixes that issue.
+ * Updated Unicode character processing for combining characters. In a
+   previous revision, the IE driver was modified to normalize Unicode
+   strings that used combining characters to compose a single glyph when
+   sending keystrokes. This commit implements the reverse of that
+   operation when reading text data, decomposing the glyph into its
+   combining characters if required. This is a potential destablizing
+   change for text sequences that use combining characters, and care
+   should be taken by users to understand the potential differences if
+   handling text using such character combinations causes unexpected
+   results.
+ * Corrected error statuses returned for switching frames. The IE
+   driver now returns the correct status as specified by the W3C
+   WebDriver Specification for error conditions encountered when
+   attempting to switch frames.
+ * Modified to allow null value for script timeout. The W3C WebDriver
+   Specification has contradictory language regarding the script
+   timeout. On the one hand, it specifies that the value of the script
+   timeout can be `null`, indicating an indefinite timeout. On the
+   other hand, it specifies that when setting or getting timeouts, the
+   value of any timeout must be an integer between 0 and 2^53 - 1.
+   Since geckodriver has made the assumption that the former condition
+   is the correct interpretation, and the maintainers of geckodriver
+   have added a test to the W3C Web Platform Tests for WebDriver that
+   expects this interpretation, the IE driver is being modified to
+   follow that decision. It is the opinion of the developers of the IE
+   driver that this is the incorrect interpretation, but there is no
+   recourse to have the geckodriver maintainers revisit their decision.
+
+v3.141.5.0
+==========
+ * Added logging of JavaScript errors when executing scripts.
+ * Fixed incorrect error response format for invalid commands in IE.
+   Previously, when an invalid command was sent to the IE driver, the
+   response was not completely valid for the W3C dialect of the wire
+   protocol. In particular, the distinction was lost between an unknown
+   URL and an invalid HTTP verb, and this code was not properly converted
+   when the driver was updated to implement the specification. This change
+   fixes that. Correct responses are now sent back for both invalid
+   command cases. Additionally, the driver no longer hand-codes JSON for
+   these responses, instead creating a valid Response object, and using
+   the common serialization mechanism for transmission. Finally, this
+   commit includes some minor code formatting cleanup, which does not
+   affect the functionality of the driver. Fixes issue #6828.
+
+v3.141.0.6
+==========
+ * Modified to allow the driver to handle supplementary Unicode characters
+   in sendKeys. The IE driver lost the ability to check for surrogate
+   pairs after implementing spec compliance in 3.5. The driver will still
+   convert the keys being sent using sendKeys from UTF-8 to UTF-16 (Windows
+   development default for wide strings), but it will now properly
+   check for supplementary characters by checking for surrogate pairs.
+ * Moved normalization of Unicode strings to InputManager. Rather than
+   normalizing every conversion from UTF-8, it is more correct to only
+   perform the normalization when using the Unicode strings for keyboard
+   input. Accordingly, the normalization code is being moved from
+   StringUtilities to the InputManager class.
+
+v3.141.0.5
+==========
+ * Updated element obscured algorithm to handle shadow DOM polyfills. Shadow
+   DOM for IE is problematic. Shadow DOM is only available in IE as a
+   polyfill. If an element is part of a Shadow DOM (using a polyfill), IE's
+   elementsFromPoint implementation will show the component elements, not
+   necessarily the Web Component root element itself. If the direct parent
+   of the Web Component host element is in this list, then it counts as a
+   direct descendent, and won't be obscured. Note that a potential
+   enhancement to this change is to walk the DOM tree up until an ancestor
+   is found that does not have a shadow root, but that enhancement is not
+   implemented at present.
+ * Added synchronization code. The IE driver can only handle one command
+   at a time. Commands from multithreaded client libraries should block
+   on the second thread's command until the first thread's executing command
+   is complete.
+ * Reverted earlier change to the obscured element algorithm. The previous
+   changes were incorrect. Any value other than 'none' for the pointerEvents
+   CSS property on a non-SVG element will result in the element receiving
+   pointer events.
+ * Removed isFocusable atom from sendKeys command. The isFocusable atom
+   does not provide the correct information as to whether an element is
+   focusable according to the W3C and WHATWG DOM specifications. This
+   change removes the use of that atom, and relies instead on the abililty
+   to set focus to the element before sending the keystrokes.
+
+v3.141.0.4
+==========
+ * Fixed to correctly set Content-length header for HTTP responses.
+   Not setting this header properly is a protocol violation, and strict
+   HTTP clients (like .NET's HttpWebRequest/HttpWebResponse) will reject
+   such an HTTP response for the 1.1 version of the HTTP protocol.
+ * Reduced JavaScript errors during findElement(s). In most cases, executing
+   JavaScript is an atomic action for the IE driver. However, in the off
+   chance that there is a page refresh during the execution of JavaScript,
+   converting the result of the script to a JSON object for serialization
+   might cause an error, in which case we should return the appropriate
+   error to the caller. One place, however, where this might be common is
+   executing findElement(s) across a page navigation. This change makes the
+   driver return the proper error in the post-processing of a script
+   execution. It also recognizes the findElement(s) case, ignoring
+   JavaScript errors in finding elements, and returning the proper structure
+   (an empty list or a "no such element" error) in its place. This lets
+   things like explicit waits retry the find, which may succeed once the
+   page navigation has completed and the DOM available for querying again.
+ * Tweaked obscured element algorithm. The algorithm used by the IE driver
+   to detect obscured elements checks the value of the pointer-events CSS
+   computed style property. This property can have valid values of "auto"
+   and "none" which affect whether to consider an element "obscured."
+   However, the property can also contain other values for SVG elements.
+   If the element in question is not an SVG element, then values other
+   than "none" and "auto" must be ignored, and the element considered not
+   to obscure the target element.
+ * Fixed compile warnings.
+
+v3.141.0.3
+==========
+ * Updated Civetweb dependency to version 1.11.
+ * Modified IE driver to no longer always send Connection: close header.
+   This is a potentially destablizing change, as the driver now should
+   correctly use keep-alive for HTTP requests and responses. While this
+   should not matter, the driver has not ever executed true with keep-
+   alive connections, so care should be used.
+
 v3.141.0.2
 ==========
  * Updating IE scroll-into-view algorithm for element click.
